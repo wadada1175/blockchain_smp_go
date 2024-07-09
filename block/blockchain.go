@@ -15,16 +15,16 @@ import (
 )
 
 const (
-	MINING_DIFFICULTY = 3 // マイニング難易度
-	MINING_SENDER     = "THE BLOCKCHAIN"
-	MINING_REWARD     = 1.0 // マイニング報酬
-	MINING_TIMER_SEC  = 20  // マイニングタイマー(startmine実行時の間隔)
+	MiningDifficulty = 3 // マイニング難易度
+	MiningSender     = "THE BLOCKCHAIN"
+	MiningReward     = 1.0 // マイニング報酬
+	MiningTimerSec   = 20  // マイニングタイマー(startmine実行時の間隔)
 
-	BLOCKCHAIN_PORT_RANGE_START      = 5000
-	BLOCKCHAIN_PORT_RANGE_END        = 5004
-	NEIGHBOR_IP_RANGE_START          = 0
-	NEIGHBOR_IP_RANGE_END            = 1
-	BLOCKCHIN_NEIGHBOR_SYNC_TIME_SEC = 20
+	BlockchainPortRangeStart      = 5000
+	BlockchainPortRangeEnd        = 5004
+	NeighborIpRangeStart          = 0
+	NeighborIpRangeEnd            = 1
+	BlockchainNeighborSyncTimeSec = 20
 )
 
 type Blockchain struct {
@@ -38,20 +38,22 @@ type Blockchain struct {
 	muxNeighbors sync.Mutex
 }
 
+// NewBlockchain 新しいブロックチェーンを初期化します。最初のブロックを作成し、チェーンに追加します。
 func NewBlockchain(blockchainAddress string, port uint16) *Blockchain {
-	b := &Block{}
-	bc := &Blockchain{
+	block := &Block{}
+	blockchain := &Blockchain{
 		blockchainAddress: blockchainAddress,
 		port:              port,
 	}
-	bc.CreateBlock(0, b.Hash())
-	return bc
+	blockchain.CreateBlock(0, block.Hash())
+	return blockchain
 }
 
 func (bc *Blockchain) Chain() []*Block {
 	return bc.chain
 }
 
+// Run 隣接ノードの同期とチェーンのコンフリクト解決を開始します。
 func (bc *Blockchain) Run() {
 	bc.StartSyncNeighbors()
 	bc.ResolveConflicts()
@@ -60,8 +62,8 @@ func (bc *Blockchain) Run() {
 func (bc *Blockchain) SetNeighbors() {
 	bc.neighbors = utils.FindNeighbors(
 		utils.GetHost(), bc.port,
-		NEIGHBOR_IP_RANGE_START, NEIGHBOR_IP_RANGE_END,
-		BLOCKCHAIN_PORT_RANGE_START, BLOCKCHAIN_PORT_RANGE_END)
+		NeighborIpRangeStart, NeighborIpRangeEnd,
+		BlockchainPortRangeStart, BlockchainPortRangeEnd)
 	log.Printf("%v", bc.neighbors)
 }
 
@@ -73,12 +75,12 @@ func (bc *Blockchain) SyncNeighbors() {
 
 func (bc *Blockchain) StartSyncNeighbors() {
 	bc.SyncNeighbors()
-	time.AfterFunc(time.Second*BLOCKCHIN_NEIGHBOR_SYNC_TIME_SEC, bc.StartSyncNeighbors)
+	time.AfterFunc(time.Second*BlockchainNeighborSyncTimeSec, bc.StartSyncNeighbors)
 }
 
 func (bc *Blockchain) CreateBlock(nonce int, previousHash [32]byte) *Block {
-	b := NewBlock(nonce, previousHash, bc.transactionPool)
-	bc.chain = append(bc.chain, b)
+	cblock := NewBlock(nonce, previousHash, bc.transactionPool)
+	bc.chain = append(bc.chain, cblock)
 	bc.transactionPool = []*Transaction{}
 	for _, n := range bc.neighbors {
 		endpoint := fmt.Sprintf("http://%s/transactions", n)
@@ -95,7 +97,7 @@ func (bc *Blockchain) CreateBlock(nonce int, previousHash [32]byte) *Block {
 		}
 		log.Printf("Deleted transactions at %v: %v", n, resp.Status)
 	}
-	return b
+	return cblock
 }
 
 func (bc *Blockchain) LastBlock() *Block {
@@ -140,15 +142,15 @@ func (bc *Blockchain) CreateTransaction(sender string, recipient string, value f
 
 func (bc *Blockchain) AddTransaction(sender string, recipient string, value float32,
 	senderPublicKey *ecdsa.PublicKey, s *utils.Signature) bool {
-	t := NewTransaction(sender, recipient, value)
+	transaction := NewTransaction(sender, recipient, value)
 
-	if sender == MINING_SENDER {
+	if sender == MiningSender {
 		log.Println("INFO: Mining reward")
-		bc.transactionPool = append(bc.transactionPool, t)
+		bc.transactionPool = append(bc.transactionPool, transaction)
 		return true
 	}
 
-	if bc.VerifyTransactionSignature(senderPublicKey, s, t) {
+	if bc.VerifyTransactionSignature(senderPublicKey, s, transaction) {
 
 		if bc.CalculateTotalAmount(sender) < value {
 			log.Println("ERROR: Not enough balance in a wallet")
@@ -156,7 +158,7 @@ func (bc *Blockchain) AddTransaction(sender string, recipient string, value floa
 		}
 
 		log.Println("INFO: Transaction signature is valid")
-		bc.transactionPool = append(bc.transactionPool, t)
+		bc.transactionPool = append(bc.transactionPool, transaction)
 		return true
 	} else {
 		log.Println("ERROR: Verify Transaction")
@@ -199,7 +201,7 @@ func (bc *Blockchain) ProofOfWork() int {
 	transactions := bc.CopyTransactionPool()
 	previousHash := bc.LastBlock().Hash()
 	nonce := 0
-	for !bc.ValidProof(nonce, previousHash, transactions, MINING_DIFFICULTY) {
+	for !bc.ValidProof(nonce, previousHash, transactions, MiningDifficulty) {
 		nonce++
 	}
 	return nonce
@@ -209,7 +211,7 @@ func (bc *Blockchain) Mining() bool {
 	bc.mux.Lock()
 	defer bc.mux.Unlock()
 
-	bc.AddTransaction(MINING_SENDER, bc.blockchainAddress, MINING_REWARD, nil, nil)
+	bc.AddTransaction(MiningSender, bc.blockchainAddress, MiningReward, nil, nil)
 	nonce := bc.ProofOfWork()
 	previousHash := bc.LastBlock().Hash()
 	bc.CreateBlock(nonce, previousHash)
@@ -236,7 +238,7 @@ func (bc *Blockchain) Mining() bool {
 
 func (bc *Blockchain) StartMining() {
 	bc.Mining()
-	time.AfterFunc(MINING_TIMER_SEC*time.Second, bc.StartMining)
+	time.AfterFunc(MiningTimerSec*time.Second, bc.StartMining)
 }
 
 func (bc *Blockchain) CalculateTotalAmount(blockchainAddress string) float32 {
@@ -259,16 +261,16 @@ func (bc *Blockchain) ValidChain(chain []*Block) bool {
 	preBlock := chain[0]
 	currentIndex := 1
 	for currentIndex < len(chain) {
-		b := chain[currentIndex]
-		if b.PreviousHash != preBlock.Hash() {
+		block := chain[currentIndex]
+		if block.PreviousHash != preBlock.Hash() {
 			return false
 		}
 
-		if !bc.ValidProof(b.Nonce, preBlock.Hash(), b.Transactions, MINING_DIFFICULTY) {
+		if !bc.ValidProof(block.Nonce, preBlock.Hash(), block.Transactions, MiningDifficulty) {
 			return false
 		}
 
-		preBlock = b
+		preBlock = block
 		currentIndex++
 	}
 	return true
