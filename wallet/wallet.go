@@ -26,7 +26,7 @@ func NewWallet() *Wallet {
 	}
 	w.privateKey = privateKey
 	w.publicKey = &privateKey.PublicKey
-	//stpp2:公開鍵をSHA-256でハッシュ化する
+	//step2:公開鍵をSHA-256でハッシュ化する
 	h2 := sha256.New()
 	h2.Write(w.publicKey.X.Bytes())
 	h2.Write(w.publicKey.Y.Bytes())
@@ -48,11 +48,11 @@ func NewWallet() *Wallet {
 	h6.Write(digest5)
 	digest6 := h6.Sum(nil)
 	//step7:step6のSHA-256ハッシュの最初の4バイトを取る。これがアドレスチェックサムである。
-	chsum := digest6[:4]
+	checksum := digest6[:4]
 	//step8:ステージ 4 の拡張 RIPEMD-160 ハッシュの最後に、ステージ 7 の 4 つのチェックサムバイトを追加します。これが25バイトのバイナリBitcoin Addressである。
 	dc8 := make([]byte, 25)
 	copy(dc8[:21], vd4[:])
-	copy(dc8[21:], chsum[:])
+	copy(dc8[21:], checksum[:])
 	//step9:Base58Check エンコーディングを使用して、バイト文字列から base58 文字列に変換します。これは最も一般的に使用されるビットコインアドレスの形式です。
 	address := base58.Encode(dc8)
 	w.blockchianAddress = address

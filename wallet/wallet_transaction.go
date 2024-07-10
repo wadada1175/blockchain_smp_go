@@ -11,13 +11,13 @@ import (
 type Transaction struct {
 	senderPrivateKey           *ecdsa.PrivateKey
 	senderPublicKey            *ecdsa.PublicKey
-	senderBloclchainAddress    string
+	senderBlockchainAddress    string
 	recipientBlockchainAddress string
 	value                      float32
 }
 
 func NewTransaction(privateKey *ecdsa.PrivateKey, publicKey *ecdsa.PublicKey, sender string, recipient string, value float32) *Transaction {
-	return &Transaction{privateKey, publicKey, sender, recipient, value}
+	return &Transaction{senderPrivateKey: privateKey, senderPublicKey: publicKey, senderBlockchainAddress: sender, recipientBlockchainAddress: recipient, value: value}
 }
 
 func (t *Transaction) GenerateSignature() *utils.Signature {
@@ -39,7 +39,7 @@ func (t *Transaction) MarshalJSON() ([]byte, error) {
 		Recipient string  `json:"recipient_blockchain_address"`
 		Value     float32 `json:"value"`
 	}{
-		Sender:    t.senderBloclchainAddress,
+		Sender:    t.senderBlockchainAddress,
 		Recipient: t.recipientBlockchainAddress,
 		Value:     t.value,
 	})
